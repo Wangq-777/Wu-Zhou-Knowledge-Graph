@@ -133,12 +133,10 @@ python src/graph_mining/faction_evaluator.py # 派系自动染色
 
 Bash
 
+
 python src/backend/server.py
 
 
 服务就绪后，在浏览器中双击打开 src/frontend/index.html，即可进入武周政局全息指挥沙盘。
 📝 许可证 (License)
 本项目采用 MIT License 开源协议。
-
-
-
