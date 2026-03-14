@@ -67,10 +67,10 @@ Markdown
 ├── lib/                     # 前端本地依赖库
 ├── main_pipeline.py         # 🚀 多线程知识抽取核心总线
 └── requirements.txt         # 项目依赖清单
+```
 
-
-🚀 快速启动指南
-1. 环境与配置
+## 🚀 快速启动指南
+### 1. 环境与配置
 确保已安装 Python 3.9+ 及 Neo4j 数据库（推荐 5.x 版本）。
 克隆代码并安装依赖：
 
@@ -92,9 +92,9 @@ QWEN_API_KEY=your_dashscope_api_key
 NO_PROXY=127.0.0.1,localhost
 
 
-2. 运行构建流水线 (Pipeline)
+### 2. 运行构建流水线 (Pipeline)
 ⚠️ 注意: 所有 Python 命令请务必在项目根目录下执行。
-Step 1: 史料采集与预处理
+* **Step 1**: 史料采集与预处理
 
 Bash
 
@@ -102,7 +102,7 @@ Bash
 python src/scraper/text_cleaner.py
 
 
-Step 2: 预埋静态基建
+* **Step 2**: 预埋静态基建
 
 Bash
 
@@ -110,7 +110,7 @@ Bash
 python src/kg_builder/static_injector.py
 
 
-Step 3: 启动 LLM 抽取与图谱写入
+* **Step 3**: 启动 LLM 抽取与图谱写入
 
 Bash
 
@@ -118,7 +118,7 @@ Bash
 python main_pipeline.py
 
 
-Step 4: 运行图算法挖掘
+* **Step 4**: 运行图算法挖掘
 
 Bash
 
@@ -128,7 +128,7 @@ python src/graph_mining/power_injector.py  # 权力指数量化
 python src/graph_mining/faction_evaluator.py # 派系自动染色
 
 
-3. 启动指挥中心大屏
+### 3. 启动指挥中心大屏
 启动 FastAPI 后端服务：
 
 Bash
@@ -138,5 +138,5 @@ python src/backend/server.py
 
 
 服务就绪后，在浏览器中双击打开 src/frontend/index.html，即可进入武周政局全息指挥沙盘。
-📝 许可证 (License)
+## 📝 许可证 (License)
 本项目采用 MIT License 开源协议。
