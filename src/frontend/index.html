@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>武周政局动态演化指挥中心</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #050505; color: #d4af37; font-family: 'PingFang SC', serif; overflow: hidden; }
+        .glass { background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(10px); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 8px;}
+        .module-title { color: #d4af37; border-left: 3px solid #d4af37; padding-left: 10px; font-size: 0.85rem; font-weight: bold; letter-spacing: 2px; margin-bottom: 15px; }
+        .time-btn { background: #111; border: 1px solid #333; padding: 10px; text-align: left; font-size: 12px; color: #888; cursor: pointer; border-radius: 4px; transition: all 0.3s;}
+        .time-btn:hover, .time-btn.active { background: rgba(212, 175, 55, 0.15); border-color: #d4af37; color: #d4af37; }
+        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+        .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease; }
+        .tab-content.active { display: flex; opacity: 1; }
+    </style>
+</head>
+<body class="h-screen w-screen grid grid-cols-12 grid-rows-6 gap-3 p-3">
+
+    <header class="col-span-12 row-span-1 glass flex items-center justify-between px-6">
+        <h1 class="text-2xl font-bold tracking-widest">武周政局权力交互研判系统 <span class="text-xs text-gray-500 ml-2 border border-gray-600 px-2 py-1 rounded">六合派系极性推演模式</span></h1>
+        <div id="global-stats" class="text-xs text-gray-400 flex gap-6">连接中...</div>
+    </header>
+
+    <aside class="col-span-3 row-span-5 flex flex-col gap-3">
+        <section class="glass p-4">
+            <div class="module-title">历史切片推演 (Timeline)</div>
+            <div class="flex flex-col gap-2">
+                <div class="time-btn active" onclick="loadTimeSlice('all', 600, 800, this)">全历时扫描 (649-705)</div>
+                <div class="time-btn" onclick="loadTimeSlice('gaozong', 649, 683, this)">高宗朝：关陇退场 (649-683)</div>
+                <div class="time-btn" onclick="loadTimeSlice('chuihong', 684, 689, this)">太后朝：酷吏横行 (684-689)</div>
+                <div class="time-btn" onclick="loadTimeSlice('wuzhou', 690, 705, this)">武周朝：神龙政变 (690-705)</div>
+            </div>
+        </section>
+        <section class="glass flex-grow p-4 overflow-hidden flex flex-col">
+            <div class="module-title">核心权力排行 (Top 10)</div>
+            <div id="bar-chart" class="flex-grow w-full"></div>
+        </section>
+    </aside>
+
+    <main class="col-span-6 row-span-5 glass relative overflow-hidden flex flex-col">
+        <div id="network-chart" class="w-full flex-grow"></div>
+        
+        <div class="absolute bottom-4 left-4 z-10 bg-black/80 border border-yellow-900/50 p-3 rounded shadow-lg backdrop-blur-md">
+            <label class="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">权力阈值过滤</label>
+            <div class="flex items-center gap-3">
+                <input type="range" id="powerRange" class="w-32 accent-yellow-600 cursor-pointer" min="0" max="1.0" step="0.05" value="0.05">
+                <span id="powerValueDisplay" class="text-yellow-500 font-mono text-xs">0.05</span>
+            </div>
+        </div>
+
+        <div class="absolute bottom-4 right-4 z-10 bg-black/80 border border-yellow-900/50 p-3 rounded shadow-lg backdrop-blur-md pointer-events-none">
+            <div class="text-[10px] text-gray-400 uppercase tracking-widest mb-2 border-b border-gray-800 pb-1">六朝派系图谱</div>
+            <div class="flex flex-col gap-1.5 text-xs text-gray-300 mb-2 font-mono" id="legend-container">
+                </div>
+        </div>
+    </main>
+
+    <aside class="col-span-3 row-span-5 flex flex-col glass overflow-hidden relative">
+        <div class="flex border-b border-yellow-900/40 bg-black/40 shrink-0">
+            <button onclick="switchTab('dossier')" id="tab-btn-dossier" class="flex-1 py-4 text-xs font-bold text-yellow-500 border-b-2 border-yellow-500 transition-colors tracking-widest">📄 机密档案</button>
+            <button onclick="switchTab('ai')" id="tab-btn-ai" class="flex-1 py-4 text-xs font-bold text-gray-500 border-b-2 border-transparent hover:text-yellow-400 transition-colors tracking-widest">🤖 智能研判</button>
+        </div>
+
+        <div id="tab-dossier" class="tab-content active flex-col h-full p-5 overflow-hidden">
+            <div id="dossier-content" class="overflow-y-auto text-sm text-gray-300 space-y-3 pr-2 h-full">
+                <div class="flex flex-col items-center justify-center h-full text-gray-500 italic">点击图谱节点，调取人物履历...</div>
+            </div>
+        </div>
+
+        <div id="tab-ai" class="tab-content flex-col h-full p-4 overflow-hidden">
+            <div id="chat-box" class="flex-grow overflow-y-auto text-sm space-y-4 mb-3 pr-2">
+                <div class="bg-yellow-900/20 p-3 border-l-2 border-yellow-600 rounded-r text-xs text-gray-300"><span class="text-yellow-500 font-bold">系统提示：</span>极性分析引擎已就绪。</div>
+            </div>
+            <div class="flex gap-2 shrink-0 mt-auto">
+                <input type="text" id="ai-input" class="bg-black/80 border border-yellow-900/60 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-yellow-500 flex-grow" placeholder="输入问题...">
+                <button onclick="askAI()" class="bg-yellow-700 hover:bg-yellow-600 text-black px-4 py-2 text-xs font-bold rounded">发送</button>
+            </div>
+        </div>
+    </aside>
+
+    <script>
+        const API_BASE = "http://localhost:8000/api";
+        const networkChart = echarts.init(document.getElementById('network-chart'));
+        const barChart = echarts.init(document.getElementById('bar-chart'));
+        
+        // 👑 派系颜色与名称字典 (严格对应后端的 0-5)
+        const factionDict = {
+            0: { name: "帝室", color: "#C41E3A" },       // 红色
+            1: { name: "武氏", color: "#E67E22" },       // 橙色
+            2: { name: "关陇集团", color: "#1F77B4" },   // 蓝色
+            3: { name: "武氏党羽", color: "#900C3F" },   // 紫红
+            4: { name: "反武势力", color: "#27AE60" },   // 青绿
+            5: { name: "中立/骑墙", color: "#555555" }   // 灰色
+        };
+
+        // 初始化图例
+        let legendHTML = '';
+        for (let i = 0; i <= 5; i++) {
+            legendHTML += `<div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background: ${factionDict[i].color}; box-shadow: 0 0 5px ${factionDict[i].color}"></div> ${factionDict[i].name}</div>`;
+        }
+        document.getElementById('legend-container').innerHTML = legendHTML;
+
+        let currentFilter = { start: 600, end: 800 };
+
+        function switchTab(tabId) {
+            ['dossier', 'ai'].forEach(id => {
+                document.getElementById(`tab-btn-${id}`).className = "flex-1 py-4 text-xs font-bold text-gray-500 border-b-2 border-transparent hover:text-yellow-400 transition-colors tracking-widest";
+                document.getElementById(`tab-${id}`).classList.remove('active');
+            });
+            document.getElementById(`tab-btn-${tabId}`).className = "flex-1 py-4 text-xs font-bold text-yellow-500 border-b-2 border-yellow-500 transition-colors tracking-widest";
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+        }
+
+        async function init() {
+            const res = await fetch(`${API_BASE}/stats`).then(r => r.json());
+            document.getElementById('global-stats').innerHTML = `<span>总人数: <b class="text-yellow-500">${res.counts.persons}</b></span> <span>有效连线: <b class="text-yellow-500">${res.counts.relations}</b></span>`;
+            barChart.setOption({
+                tooltip: {trigger: 'axis'}, grid: {left: '15%', right: '5%', bottom: '20%', top: '5%'},
+                xAxis: { type: 'category', data: res.top_power.map(x=>x.name), axisLabel: {color: '#888', interval: 0, rotate: 45} },
+                yAxis: { type: 'value', splitLine: {lineStyle: {color: '#222'}} },
+                series: [{ type: 'bar', data: res.top_power.map(x=>x.value), itemStyle: {color: '#d4af37'} }]
+            });
+            await loadTimeSlice('all', 600, 800, document.querySelector('.time-btn.active'));
+        }
+
+        async function loadTimeSlice(id, start, end, btnElement) {
+            if(start !== undefined && end !== undefined) { currentFilter.start = start; currentFilter.end = end; }
+            if(btnElement) {
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                btnElement.classList.add('active');
+            }
+            const minPower = document.getElementById('powerRange').value;
+            document.getElementById('powerValueDisplay').innerText = minPower;
+
+            networkChart.showLoading({text: '极性网络重算中...', color: '#d4af37', maskColor: 'rgba(5,5,5,0.8)'});
+            const res = await fetch(`${API_BASE}/graph?start_year=${currentFilter.start}&end_year=${currentFilter.end}&min_power=${minPower}`).then(r => r.json());
+            renderGraph(res.nodes, res.links);
+            networkChart.hideLoading();
+        }
+
+        function renderGraph(rawNodes, rawLinks) {
+            const nodes = rawNodes.map(n => {
+                const f = factionDict[n.category] || factionDict[5];
+                return { ...n, symbolSize: Math.max(15, Math.min(80, Math.sqrt(n.value) * 35)), itemStyle: { color: f.color, borderColor: '#000', borderWidth: 1 }};
+            });
+            const links = rawLinks.map(l => {
+                let c = '#555'; 
+                if (['依附', '结盟', '任免', '举荐'].includes(l.type)) c = '#2ECC71'; 
+                if (['政敌', '迫害', '流放', '诛杀'].includes(l.type)) c = '#E74C3C'; 
+                return { ...l, _cleanData: l, lineStyle: { color: c, width: 2, opacity: 0.5, curveness: 0.2 }};
+            });
+
+            networkChart.setOption({
+                tooltip: {
+                    padding: 0, backgroundColor: 'transparent',
+                    formatter: function(p) {
+                        if (p.dataType === 'node') {
+                            const f = factionDict[p.data.category] || factionDict[5];
+                            return `<div class="bg-black/95 border border-yellow-700/50 p-3 rounded text-white"><div class="font-bold text-lg mb-1">${p.data.name}</div><div class="text-xs text-gray-400">研判阵营: <span style="color:${f.color}">${f.name}</span><br>权力: <span class="text-yellow-500">${p.data.value}</span></div></div>`;
+                        }
+                        const d = p.data._cleanData;
+                        return `<div class="bg-black/95 border border-yellow-700/50 p-4 rounded max-w-xs text-xs text-gray-300"><div class="text-yellow-500 font-bold mb-2">${d.source} ➔ ${d.target}</div><div><span style="color:${p.color}">${d.type}</span> | ${d.year}</div><div class="mt-2 text-gray-400 italic">"${d.evidence}" -《${d.sourceBook}》</div></div>`;
+                    }
+                },
+                series: [{
+                    type: 'graph', layout: 'force', roam: true, draggable: true, data: nodes, links: links,
+                    force: { repulsion: 2500, edgeLength: [120, 300], gravity: 0.05 },
+                    label: { show: true, position: 'right', color: '#fff' },
+                    edgeLabel: { show: true, formatter: (p) => p.data._cleanData.type, color: '#ccc', fontSize: 10, backgroundColor: 'rgba(10,10,15,0.8)', padding: [2,4] }
+                }]
+            });
+        }
+
+        document.getElementById('powerRange').addEventListener('input', (e) => { document.getElementById('powerValueDisplay').innerText = e.target.value; });
+        document.getElementById('powerRange').addEventListener('change', () => loadTimeSlice()); 
+
+        networkChart.on('click', async function(params) {
+            if (params.dataType === 'node') {
+                const name = params.data.name;
+                switchTab('dossier'); 
+                document.getElementById('dossier-content').innerHTML = `<div class="text-yellow-500 text-center mt-10">提取 ${name} 档案中...</div>`;
+                
+                const data = await fetch(`${API_BASE}/person/${name}`).then(r => r.json());
+                if(data.error) return;
+
+                let acts = data.resume.actions.map(a => `<li><span class="text-yellow-600">[${a.year}]</span> 针对 <b class="text-white">${a.target}</b> 发起了 <span class="text-red-400">${a.action}</span></li>`).join('');
+                let encs = data.resume.encounters.map(a => `<li><span class="text-yellow-600">[${a.year}]</span> 被 <b class="text-white">${a.source}</b> <span class="text-blue-400">${a.action}</span></li>`).join('');
+
+                let barHTML = '', textHTML = '';
+                
+                // 寻找派系颜色字典 (反向映射)
+                const getColorForFactionName = (fname) => {
+                    for(let i=0; i<=5; i++) { if(factionDict[i].name === fname) return factionDict[i].color; }
+                    return "#555";
+                };
+
+                for (const [faction, pct] of Object.entries(data.affinity)) {
+                    const c = getColorForFactionName(faction);
+                    barHTML += `<div style="width: ${pct}%; background-color: ${c};" class="h-full"></div>`;
+                    textHTML += `<span style="color: ${c};" class="mr-3 font-bold">${faction} ${pct}%</span>`;
+                }
+
+                document.getElementById('dossier-content').innerHTML = `
+                    <div class="text-2xl font-bold text-white tracking-widest">${data.name}</div>
+                    <div class="text-xs text-gray-500 mb-4 pb-3 border-b border-gray-800">代称：${data.aliases.join(', ') || '无'}</div>
+                    <div class="mb-5 bg-black/40 p-2 border border-gray-800 rounded">
+                        <div class="text-[10px] text-gray-400 uppercase mb-1">六合光谱分析 (正面结交比例)</div>
+                        <div class="w-full h-2 bg-gray-900 rounded-full flex mb-2 overflow-hidden">${barHTML}</div>
+                        <div class="text-xs flex flex-wrap">${textHTML}</div>
+                    </div>
+                    <div class="mb-5"><div class="text-xs text-yellow-500 mb-2">主动出击</div><ul class="space-y-2 pl-2 border-l border-gray-800">${acts || '无'}</ul></div>
+                    <div><div class="text-xs text-blue-400 mb-2">被动遭遇</div><ul class="space-y-2 pl-2 border-l border-gray-800">${encs || '无'}</ul></div>
+                `;
+            }
+        });
+
+        async function askAI() {
+            const input = document.getElementById('ai-input'), q = input.value.trim();
+            if(!q) return;
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML += `<div class="flex justify-end mb-4"><div class="bg-blue-900/30 text-blue-300 border border-blue-800/50 p-3 rounded-lg rounded-tr-none max-w-[85%] text-xs shadow-md"><b class="text-blue-400 block">研判指令：</b>${q}</div></div>`;
+            input.value = ""; chatBox.scrollTop = chatBox.scrollHeight;
+
+            const res = await fetch(`${API_BASE}/ask`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question: q}) }).then(r => r.json());
+            
+            const hlStyle = `<span class="inline-block bg-yellow-900/40 text-yellow-400 border border-yellow-600/50 rounded px-2 py-1 mx-1 my-1 text-[11px] shadow-sm">🔍 $1</span>`;
+            const ans = res.answer.replace(/【依据：(.*?)】/g, hlStyle).replace(/\[依据：(.*?)\]/g, hlStyle);
+
+            chatBox.innerHTML += `<div class="flex justify-start mb-4"><div class="bg-black/60 text-gray-300 border border-yellow-900/40 p-3 rounded-lg rounded-tl-none max-w-[95%] text-xs leading-relaxed shadow-lg"><b class="text-yellow-500 block border-b border-gray-800 pb-1 mb-2">AI 研判：</b>${ans}</div></div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        document.getElementById('ai-input').addEventListener('keypress', e => { if (e.key === 'Enter') askAI(); });
+
+        init();
+        window.addEventListener('resize', () => { networkChart.resize(); barChart.resize(); });
+    </script>
+</body>
+</html>
