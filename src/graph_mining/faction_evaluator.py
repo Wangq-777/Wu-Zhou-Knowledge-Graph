@@ -13,27 +13,30 @@ class TrueGraphFactionEvaluator:
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
 
     def generate_factions(self):
-        # 👑 1. 极简“阵眼”定义 (Seed Nodes)
-        # 绝对不穷举，只定义图谱的 5 个引力中心，剩下的全靠图算法自己算！
+        # 👑 1. 阵眼定义完全对齐 V2.0 (Seed Nodes)
+        # 0: 李唐帝室, 1: 武氏宗亲, 2: 关陇集团, 3: 武周党羽, 4: 反武势力, 5: 中立/未明
+        BLOOD_LI = ["唐高宗", "唐中宗", "李显", "唐睿宗", "李旦", "唐玄宗", "太平公主", "相王旦", "韦后", "安乐公主", "李重俊", "李轮"]
+        BLOOD_WU = ["武则天", "武三思", "武承嗣", "武攸暨", "武延秀", "魏王承嗣", "武氏诸王"]
+
         anchors = {
-            "武则天": 0, "太平公主": 0,  # 0: 皇权核心
-            "唐中宗": 1, "李显": 1, "唐睿宗": 1, "李旦": 1, "唐玄宗": 1, # 1: 李唐宗室核心
-            "武三思": 2, "武承嗣": 2,      # 2: 武周新贵核心
-            "狄仁杰": 3, "张柬之": 3,      # 3: 朝堂重臣核心
-            "来俊臣": 4, "张易之": 4       # 4: 酷吏近臣核心
+            "长孙无忌": 2, "褚遂良": 2, "韩瑗": 2, "柳奭": 2,
+            "张易之": 3, "张昌宗": 3, "薛怀义": 3,
+            "裴炎": 4, "徐敬业": 4, "骆宾王": 4, "张柬之": 4, "狄仁杰": 4, "桓彦范": 4, "敬晖": 4, "魏元忠": 4
         }
+        for name in BLOOD_LI: anchors[name] = 0
+        for name in BLOOD_WU: anchors[name] = 1
 
         with self.driver.session() as session:
             # 获取全库人物用于兜底
             all_nodes = [r["name"] for r in session.run("MATCH (n:Person) RETURN n.name AS name")]
 
             print("📥 正在剥离负面关系，提取纯粹的【政治盟友子图】...")
-            # 👑 2. 图算法关键修正：只用正面关系建图，隔离仇敌！
+            # 👑 2. 图算法关键修正：剔除了数据库不存在的动词，仅保留核心极性
             query = """
             MATCH (s:Person)-[r]->(t:Person)
             WHERE s.name <> t.name 
-              // 坚决排除 '迫害', '政敌', '贬谪' 等负面关系
-              AND type(r) IN ['依附', '结盟', '任免', '担任', '举荐', '支持', '辅佐']
+              // 坚决排除 '迫害', '政敌' 等负面关系，只留客观存在的正面连线
+              AND type(r) IN ['依附', '结盟']
             RETURN s.name AS source, t.name AS target
             """
             edges = session.run(query).data()
@@ -49,12 +52,12 @@ class TrueGraphFactionEvaluator:
             updates = []
             processed_nodes = set()
 
-# 4. 基于图拓扑的阵营定性 (Label Propagation via Communities)
+            # 4. 基于图拓扑的阵营定性 (Label Propagation via Communities)
             for i, comm in enumerate(communities):
-                comm_faction = 4 # 默认中立势力
+                comm_faction = 5 # 👑 修正：默认中立势力改为 5
                 
-                # 统计该社区内各个阵眼的权重
-                faction_votes = {0:0, 1:0, 2:0, 3:0, 4:0}
+                # 统计该社区内各个阵眼的权重 (包含0-5)
+                faction_votes = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0}
                 for node in comm:
                     if node in anchors:
                         faction_votes[anchors[node]] += 1
@@ -78,14 +81,14 @@ class TrueGraphFactionEvaluator:
             # 5. 处理孤立节点 (没有任何正面政治盟友的人)
             for node in all_nodes:
                 if node not in processed_nodes:
-                    # 如果他本身是阵眼（虽然概率极低），保留其身份，否则归为中立
-                    faction_id = anchors.get(node, 4) 
+                    # 如果他本身是阵眼，保留其身份，否则归为中立(5)
+                    faction_id = anchors.get(node, 5) 
                     updates.append({"name": node, "faction_id": faction_id})
 
             print(f"💾 正在将算法涌现出的 {len(updates)} 个人物派系写入 Neo4j 数据库...")
             session.run("UNWIND $batch AS record MATCH (n:Person {name: record.name}) SET n.faction_id = record.faction_id", batch=updates)
             
-            print("🎉 纯图算法推演完成！拓扑网络已自动划清界限。")
+            print("🎉 V2.0 纯图算法推演完成！拓扑网络已自动划清界限。")
 
 if __name__ == "__main__":
     evaluator = TrueGraphFactionEvaluator()

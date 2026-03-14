@@ -2,7 +2,6 @@ import os
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 
-# 加载环境变量 (确保 .env 中有 NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
 load_dotenv()
 
 class EntityResolver:
@@ -12,72 +11,87 @@ class EntityResolver:
         password = os.getenv("NEO4J_PASSWORD")
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
 
-        # 👑 核心消歧字典：将 左侧的“分身/别名” 合并入 右侧的“标准主节点”
+        # 👑 终极消歧字典：基于审计报告的实锤对齐
         self.synonym_dict = {
-            # --- 本次通过结构排查发现的实锤别名 ---
-            "李隆基": "唐玄宗",
+            # --- 武则天核心 (审计发现 22 个共同邻居) ---
             "武昭仪": "武则天",
-            "懿宗": "武懿宗",          # 修复大模型漏字错误
-            "上官昭容": "上官婉儿",
-            "韦庶人": "韦后",
-            "中宗": "唐中宗",
-            "中宗李显": "唐中宗",
-            "李显": "唐中宗",
-            "睿宗": "李旦",
-            "相王": "李旦",
-            "豫王": "李旦",
-            "天皇": "唐高宗",
-            "李治": "唐高宗",
-            
-            # --- 常见尊号与官职代称 ---
-            "天皇": "唐高宗",
-            "大帝": "唐高宗", # 有时史书简称天皇大帝为大帝
-            "天皇大帝": "唐高宗",
-            "晋王": "唐高宗", # 登基前、立太子前的封号
-            "李治": "唐高宗",
-            "高宗": "唐高宗",
-            "高宗大帝": "唐高宗",
             "武后": "武则天",
             "天后": "武则天",
             "太后": "武则天",
+            "武曌": "武则天",
             "则天": "武则天",
             "武媚娘": "武则天",
+            "大圣皇帝": "武则天",
+
+            # --- 唐高宗核心 (审计发现 40 个共同邻居) ---
+            "李治": "唐高宗",
+            "高宗": "唐高宗",
+            "天皇": "唐高宗",
+            "天皇大帝": "唐高宗",
+            "晋王": "唐高宗",
+
+            # --- 韦后核心 (审计发现 58 个共同邻居) ---
+            "韦氏": "韦后",
+            "韦庶人": "韦后",
+            "韦皇后": "韦后",
+
+            # --- 李唐宗室系列 (审计发现 30+ 共同邻居) ---
+            "中宗": "李显",
+            "唐中宗": "李显",
+            "中宗李显": "李显",
+            "庐陵王": "李显",
+            "庐陵王哲": "李显",
+            "睿宗": "李旦",
+            "唐睿宗": "李旦",
+            "相王": "李旦",
+            "豫王": "李旦",
+            "皇嗣": "李旦",
+            "皇嗣李旦": "李旦",
+            "章怀太子": "李贤",
+            "李贤": "李贤", # 占位确保规范
+            "章怀太子李贤": "李贤",
+            "太子贤": "李贤",
+            "李隆基": "唐玄宗", # 此时期多称其本名或临淄王
+
+            # --- 功臣、外戚与酷吏 ---
             "魏王": "武承嗣",
             "梁王": "武三思",
+            "懿宗": "武懿宗",
             "裴中书": "裴炎",
             "裴子隆": "裴炎",
             "狄国老": "狄仁杰",
             "冯小宝": "薛怀义",
             "张六郎": "张昌宗",
-            "五郎": "张易之"
+            "五郎": "张易之",
+            "李敬业": "徐敬业",
+            "瑯邪王李冲": "李冲",
+            "成王李千里": "李千里",
+            "孝逸": "李孝逸"
         }
 
     def close(self):
         self.driver.close()
 
     def resolve_graph(self):
-        print("🧬 开始进行图谱实体对齐与网络重构...")
+        print("🧬 正在启动 V2.0 政治网络重构引擎...")
         with self.driver.session() as session:
             for alias, standard in self.synonym_dict.items():
-                # 遍历字典，执行合并逻辑
+                if alias == standard: continue # 避免自循环
                 session.execute_write(self._merge_nodes, alias, standard)
-        print("\n🎉 全局实体对齐完成！权力网络已净化，冗余节点已销毁。")
+        print("\n🎉 全局实体对齐完成！武周政治骨架已加固。")
 
     @staticmethod
     def _merge_nodes(tx, alias_name, standard_name):
-        """核心重构逻辑：迁移出边、迁移入边、合并属性、销毁分身"""
-        
-        # 1. 检查别名节点是否存在 (不存在则跳过，节省资源)
+        # 1. 检查别名节点
         check_query = "MATCH (a:Person {name: $alias}) RETURN a"
         if not tx.run(check_query, alias=alias_name).single():
             return
 
-        print(f"\n🔍 发现待合并实体: [{alias_name}] -> 准备接入主节点 [{standard_name}]")
+        print(f"\n🔍 探测到分身: [{alias_name}] -> 归并至规范名 [{standard_name}]")
 
-        # 2. 确保标准主节点存在，并将别名记录到主节点的 aliases 列表中
+        # 2. 确保标准主节点存在并合并别名
         merge_std_query = """
         MERGE (main:Person {name: $standard})
-        ON CREATE SET main.aliases = [$alias], main.power_score = 0.1
         ON MATCH SET main.aliases = CASE
             WHEN NOT $alias IN coalesce(main.aliases, [])
             THEN coalesce(main.aliases, []) + [$alias]
@@ -85,52 +99,40 @@ class EntityResolver:
         """
         tx.run(merge_std_query, standard=standard_name, alias=alias_name)
 
-        # 3. 迁移【出边】 (Alias 发出的关系 -> Target)
+        # 3. 迁移【出边】
         out_edges = tx.run("""
             MATCH (a:Person {name: $alias})-[r]->(t) 
-            RETURN type(r) AS rel_type, t.name AS target, properties(r) AS props
+            RETURN type(r) AS rel_type, labels(t)[0] AS t_label, t.name AS target, properties(r) AS props
         """, alias=alias_name).data()
         
-        out_count = 0
         for edge in out_edges:
-            if edge['target'] == standard_name:
-                continue # 防止自己连自己的闭环错误
-                
-            # 使用 Python 字符串格式化注入关系类型 (因为 Cypher 不支持参数化关系类型)
+            if edge['target'] == standard_name: continue
             create_out = f"""
             MATCH (main:Person {{name: $standard}})
-            MATCH (t:Person {{name: $target}})
+            MATCH (t:`{edge['t_label']}` {{name: $target}})
             MERGE (main)-[r:`{edge['rel_type']}`]->(t)
             SET r += $props
             """
             tx.run(create_out, standard=standard_name, target=edge['target'], props=edge['props'])
-            out_count += 1
 
-        # 4. 迁移【入边】 (Source 发出的关系 -> Alias)
+        # 4. 迁移【入边】
         in_edges = tx.run("""
             MATCH (s)-[r]->(a:Person {name: $alias}) 
-            RETURN type(r) AS rel_type, s.name AS source, properties(r) AS props
+            RETURN type(r) AS rel_type, labels(s)[0] AS s_label, s.name AS source, properties(r) AS props
         """, alias=alias_name).data()
         
-        in_count = 0
         for edge in in_edges:
-            if edge['source'] == standard_name:
-                continue # 防止自己连自己的闭环错误
-                
+            if edge['source'] == standard_name: continue
             create_in = f"""
             MATCH (main:Person {{name: $standard}})
-            MATCH (s:Person {{name: $source}})
+            MATCH (s:`{edge['s_label']}` {{name: $source}})
             MERGE (s)-[r:`{edge['rel_type']}`]->(main)
             SET r += $props
             """
             tx.run(create_in, standard=standard_name, source=edge['source'], props=edge['props'])
-            in_count += 1
 
-        # 5. 卸磨杀驴：断开并彻底删除旧的别名节点
-        delete_query = "MATCH (a:Person {name: $alias}) DETACH DELETE a"
-        tx.run(delete_query, alias=alias_name)
-        
-        print(f"   ✅ 转移完毕: 迁出 {out_count} 条关系，迁入 {in_count} 条关系。冗余节点 [{alias_name}] 已销毁。")
+        # 5. 彻底删除旧节点
+        tx.run("MATCH (a:Person {name: $alias}) DETACH DELETE a", alias=alias_name)
 
 if __name__ == "__main__":
     resolver = EntityResolver()

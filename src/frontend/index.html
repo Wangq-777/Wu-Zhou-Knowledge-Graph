@@ -19,7 +19,7 @@
 <body class="h-screen w-screen grid grid-cols-12 grid-rows-6 gap-3 p-3">
 
     <header class="col-span-12 row-span-1 glass flex items-center justify-between px-6">
-        <h1 class="text-2xl font-bold tracking-widest">武周政局权力交互研判系统 <span class="text-xs text-gray-500 ml-2 border border-gray-600 px-2 py-1 rounded">六合派系极性推演模式</span></h1>
+        <h1 class="text-2xl font-bold tracking-widest">武周政局权力交互研判系统 <span class="text-xs text-gray-500 ml-2 border border-gray-600 px-2 py-1 rounded">V2.0 混合向量推演模式</span></h1>
         <div id="global-stats" class="text-xs text-gray-400 flex gap-6">连接中...</div>
     </header>
 
@@ -43,7 +43,7 @@
         <div id="network-chart" class="w-full flex-grow"></div>
         
         <div class="absolute bottom-4 left-4 z-10 bg-black/80 border border-yellow-900/50 p-3 rounded shadow-lg backdrop-blur-md">
-            <label class="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">权力阈值过滤</label>
+            <label class="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">连线阈值过滤</label>
             <div class="flex items-center gap-3">
                 <input type="range" id="powerRange" class="w-32 accent-yellow-600 cursor-pointer" min="0" max="1.0" step="0.05" value="0.05">
                 <span id="powerValueDisplay" class="text-yellow-500 font-mono text-xs">0.05</span>
@@ -51,7 +51,7 @@
         </div>
 
         <div class="absolute bottom-4 right-4 z-10 bg-black/80 border border-yellow-900/50 p-3 rounded shadow-lg backdrop-blur-md pointer-events-none">
-            <div class="text-[10px] text-gray-400 uppercase tracking-widest mb-2 border-b border-gray-800 pb-1">六朝派系图谱</div>
+            <div class="text-[10px] text-gray-400 uppercase tracking-widest mb-2 border-b border-gray-800 pb-1">沙盘全息图例</div>
             <div class="flex flex-col gap-1.5 text-xs text-gray-300 mb-2 font-mono" id="legend-container">
                 </div>
         </div>
@@ -65,17 +65,17 @@
 
         <div id="tab-dossier" class="tab-content active flex-col h-full p-5 overflow-hidden">
             <div id="dossier-content" class="overflow-y-auto text-sm text-gray-300 space-y-3 pr-2 h-full">
-                <div class="flex flex-col items-center justify-center h-full text-gray-500 italic">点击图谱节点，调取人物履历...</div>
+                <div class="flex flex-col items-center justify-center h-full text-gray-500 italic">在沙盘中点击 人物/事件，调取卷宗...</div>
             </div>
         </div>
 
         <div id="tab-ai" class="tab-content flex-col h-full p-4 overflow-hidden">
             <div id="chat-box" class="flex-grow overflow-y-auto text-sm space-y-4 mb-3 pr-2">
-                <div class="bg-yellow-900/20 p-3 border-l-2 border-yellow-600 rounded-r text-xs text-gray-300"><span class="text-yellow-500 font-bold">系统提示：</span>极性分析引擎已就绪。</div>
+                <div class="bg-yellow-900/20 p-3 border-l-2 border-yellow-600 rounded-r text-xs text-gray-300"><span class="text-yellow-500 font-bold">系统提示：</span>V2.0 混合向量搜索引擎已上线，支持大段史料与事件穿透。</div>
             </div>
             <div class="flex gap-2 shrink-0 mt-auto">
-                <input type="text" id="ai-input" class="bg-black/80 border border-yellow-900/60 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-yellow-500 flex-grow" placeholder="输入问题...">
-                <button onclick="askAI()" class="bg-yellow-700 hover:bg-yellow-600 text-black px-4 py-2 text-xs font-bold rounded">发送</button>
+                <input type="text" id="ai-input" class="bg-black/80 border border-yellow-900/60 rounded px-3 py-2 text-white text-xs focus:outline-none focus:border-yellow-500 flex-grow" placeholder="输入研判指令 (如: 高宗朝政变)..." autocomplete="off">
+                <button onclick="askAI()" id="send-btn" class="bg-yellow-700 hover:bg-yellow-600 text-black px-4 py-2 text-xs font-bold rounded">推演</button>
             </div>
         </div>
     </aside>
@@ -85,20 +85,21 @@
         const networkChart = echarts.init(document.getElementById('network-chart'));
         const barChart = echarts.init(document.getElementById('bar-chart'));
         
-        // 👑 派系颜色与名称字典 (严格对应后端的 0-5)
+        // 👑 V2.0 图例字典：加入 6号(重大事件) 
         const factionDict = {
-            0: { name: "帝室", color: "#C41E3A" },       // 红色
-            1: { name: "武氏", color: "#E67E22" },       // 橙色
-            2: { name: "关陇集团", color: "#1F77B4" },   // 蓝色
-            3: { name: "武氏党羽", color: "#900C3F" },   // 紫红
-            4: { name: "反武势力", color: "#27AE60" },   // 青绿
-            5: { name: "中立/骑墙", color: "#555555" }   // 灰色
+            0: { name: "李唐帝室", color: "#C41E3A" },
+            1: { name: "武氏宗亲", color: "#E67E22" },
+            2: { name: "关陇集团", color: "#1F77B4" },
+            3: { name: "武周党羽", color: "#900C3F" },
+            4: { name: "反武势力", color: "#27AE60" },
+            5: { name: "中立/未明", color: "#555555" },
+            6: { name: "重大事件", color: "#FFD700" } // 事件高亮金色
         };
 
-        // 初始化图例
         let legendHTML = '';
-        for (let i = 0; i <= 5; i++) {
-            legendHTML += `<div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background: ${factionDict[i].color}; box-shadow: 0 0 5px ${factionDict[i].color}"></div> ${factionDict[i].name}</div>`;
+        for (let i = 0; i <= 6; i++) {
+            let shape = i === 6 ? 'border-radius: 0; transform: rotate(45deg);' : 'border-radius: 50%;';
+            legendHTML += `<div class="flex items-center gap-2"><div class="w-2.5 h-2.5" style="background: ${factionDict[i].color}; box-shadow: 0 0 8px ${factionDict[i].color}; ${shape}"></div> ${factionDict[i].name}</div>`;
         }
         document.getElementById('legend-container').innerHTML = legendHTML;
 
@@ -115,10 +116,15 @@
 
         async function init() {
             const res = await fetch(`${API_BASE}/stats`).then(r => r.json());
-            document.getElementById('global-stats').innerHTML = `<span>总人数: <b class="text-yellow-500">${res.counts.persons}</b></span> <span>有效连线: <b class="text-yellow-500">${res.counts.relations}</b></span>`;
+            document.getElementById('global-stats').innerHTML = `
+                <span>核心人物: <b class="text-yellow-500">${res.counts.persons}</b></span> 
+                <span>历史大案: <b class="text-yellow-500">${res.counts.events}</b></span> 
+                <span>关系脉络: <b class="text-yellow-500">${res.counts.relations}</b></span>
+            `;
             barChart.setOption({
-                tooltip: {trigger: 'axis'}, grid: {left: '15%', right: '5%', bottom: '20%', top: '5%'},
-                xAxis: { type: 'category', data: res.top_power.map(x=>x.name), axisLabel: {color: '#888', interval: 0, rotate: 45} },
+                tooltip: {trigger: 'axis', backgroundColor: 'rgba(0,0,0,0.8)', textStyle: {color: '#fff'}, borderColor: '#d4af37'}, 
+                grid: {left: '15%', right: '5%', bottom: '25%', top: '5%'},
+                xAxis: { type: 'category', data: res.top_power.map(x=>x.name), axisLabel: {color: '#aaa', interval: 0, rotate: 45, fontSize: 10} },
                 yAxis: { type: 'value', splitLine: {lineStyle: {color: '#222'}} },
                 series: [{ type: 'bar', data: res.top_power.map(x=>x.value), itemStyle: {color: '#d4af37'} }]
             });
@@ -134,22 +140,36 @@
             const minPower = document.getElementById('powerRange').value;
             document.getElementById('powerValueDisplay').innerText = minPower;
 
-            networkChart.showLoading({text: '极性网络重算中...', color: '#d4af37', maskColor: 'rgba(5,5,5,0.8)'});
+            networkChart.showLoading({text: '高维矩阵解析中...', color: '#d4af37', maskColor: 'rgba(5,5,5,0.8)'});
             const res = await fetch(`${API_BASE}/graph?start_year=${currentFilter.start}&end_year=${currentFilter.end}&min_power=${minPower}`).then(r => r.json());
             renderGraph(res.nodes, res.links);
             networkChart.hideLoading();
         }
 
         function renderGraph(rawNodes, rawLinks) {
+            // 👑 V2.0 节点视觉：人物为圆形，事件为发光大菱形
             const nodes = rawNodes.map(n => {
                 const f = factionDict[n.category] || factionDict[5];
-                return { ...n, symbolSize: Math.max(15, Math.min(80, Math.sqrt(n.value) * 35)), itemStyle: { color: f.color, borderColor: '#000', borderWidth: 1 }};
+                const isEvent = n.type === 'Event';
+                return { 
+                    ...n, 
+                    symbol: isEvent ? 'diamond' : 'circle',
+                    symbolSize: isEvent ? 45 : Math.max(18, Math.min(60, Math.sqrt(n.value) * 30)),
+                    itemStyle: { 
+                        color: f.color, 
+                        borderColor: isEvent ? '#FFF' : '#000', 
+                        borderWidth: isEvent ? 1 : 1,
+                        shadowBlur: isEvent ? 20 : 0,
+                        shadowColor: isEvent ? '#FFD700' : 'transparent'
+                    }
+                };
             });
+            
             const links = rawLinks.map(l => {
                 let c = '#555'; 
-                if (['依附', '结盟', '任免', '举荐'].includes(l.type)) c = '#2ECC71'; 
-                if (['政敌', '迫害', '流放', '诛杀'].includes(l.type)) c = '#E74C3C'; 
-                return { ...l, _cleanData: l, lineStyle: { color: c, width: 2, opacity: 0.5, curveness: 0.2 }};
+                if (['依附', '结盟', '任免', '举荐', '参与', '拥立', '平反'].includes(l.type)) c = '#2ECC71'; 
+                if (['政敌', '迫害', '流放', '诛杀', '反对', '废黜'].includes(l.type)) c = '#E74C3C'; 
+                return { ...l, _cleanData: l, lineStyle: { color: c, width: l.type==='参与'?1.5:2.5, opacity: 0.6, curveness: 0.15 }};
             });
 
             networkChart.setOption({
@@ -158,17 +178,18 @@
                     formatter: function(p) {
                         if (p.dataType === 'node') {
                             const f = factionDict[p.data.category] || factionDict[5];
-                            return `<div class="bg-black/95 border border-yellow-700/50 p-3 rounded text-white"><div class="font-bold text-lg mb-1">${p.data.name}</div><div class="text-xs text-gray-400">研判阵营: <span style="color:${f.color}">${f.name}</span><br>权力: <span class="text-yellow-500">${p.data.value}</span></div></div>`;
+                            let typeTag = p.data.type === 'Event' ? '重大历史事件' : '派系研判';
+                            return `<div class="bg-black/95 border border-yellow-700/50 p-3 rounded text-white shadow-2xl"><div class="font-bold text-lg mb-1">${p.data.name}</div><div class="text-xs text-gray-400">${typeTag}: <span style="color:${f.color}; font-weight:bold;">${f.name}</span></div></div>`;
                         }
                         const d = p.data._cleanData;
-                        return `<div class="bg-black/95 border border-yellow-700/50 p-4 rounded max-w-xs text-xs text-gray-300"><div class="text-yellow-500 font-bold mb-2">${d.source} ➔ ${d.target}</div><div><span style="color:${p.color}">${d.type}</span> | ${d.year}</div><div class="mt-2 text-gray-400 italic">"${d.evidence}" -《${d.sourceBook}》</div></div>`;
+                        return `<div class="bg-black/95 border border-yellow-700/50 p-4 rounded max-w-sm text-xs text-gray-300 shadow-2xl"><div class="text-yellow-500 font-bold mb-2 text-sm">${d.source} ➔ ${d.target}</div><div><span style="color:${p.color}; border: 1px solid ${p.color}; padding: 1px 4px; border-radius: 2px;">${d.type}</span> <span class="ml-2 text-gray-500">公元 ${d.year} 年</span></div><div class="mt-3 text-gray-300 leading-relaxed border-t border-gray-800 pt-2">"${d.evidence}"</div><div class="mt-2 text-yellow-600/80 italic text-right">——《${d.sourceBook}》</div></div>`;
                     }
                 },
                 series: [{
                     type: 'graph', layout: 'force', roam: true, draggable: true, data: nodes, links: links,
-                    force: { repulsion: 2500, edgeLength: [120, 300], gravity: 0.05 },
-                    label: { show: true, position: 'right', color: '#fff' },
-                    edgeLabel: { show: true, formatter: (p) => p.data._cleanData.type, color: '#ccc', fontSize: 10, backgroundColor: 'rgba(10,10,15,0.8)', padding: [2,4] }
+                    force: { repulsion: 2500, edgeLength: [80, 220], gravity: 0.1 },
+                    label: { show: true, position: 'right', color: '#fff', fontSize: 11, textBorderColor: '#000', textBorderWidth: 2 },
+                    edgeLabel: { show: true, formatter: (p) => p.data._cleanData.type, color: '#ccc', fontSize: 9, backgroundColor: 'rgba(5,5,5,0.8)', padding: [2,4] }
                 }]
             });
         }
@@ -180,55 +201,124 @@
             if (params.dataType === 'node') {
                 const name = params.data.name;
                 switchTab('dossier'); 
-                document.getElementById('dossier-content').innerHTML = `<div class="text-yellow-500 text-center mt-10">提取 ${name} 档案中...</div>`;
+                document.getElementById('dossier-content').innerHTML = `<div class="text-yellow-500 text-center mt-10 animate-pulse">提取沙盘实体 [${name}] 绝密档案中...</div>`;
                 
                 const data = await fetch(`${API_BASE}/person/${name}`).then(r => r.json());
-                if(data.error) return;
+                if(data.error) { document.getElementById('dossier-content').innerHTML = `<div class="text-red-500 text-center mt-10">${data.error}</div>`; return; }
 
-                let acts = data.resume.actions.map(a => `<li><span class="text-yellow-600">[${a.year}]</span> 针对 <b class="text-white">${a.target}</b> 发起了 <span class="text-red-400">${a.action}</span></li>`).join('');
-                let encs = data.resume.encounters.map(a => `<li><span class="text-yellow-600">[${a.year}]</span> 被 <b class="text-white">${a.source}</b> <span class="text-blue-400">${a.action}</span></li>`).join('');
-
-                let barHTML = '', textHTML = '';
-                
-                // 寻找派系颜色字典 (反向映射)
-                const getColorForFactionName = (fname) => {
-                    for(let i=0; i<=5; i++) { if(factionDict[i].name === fname) return factionDict[i].color; }
-                    return "#555";
+                // --- 👑 新增：年份美化器 ---
+                const formatYear = (y) => {
+                    if (y === '9999' || y === '未知' || y == null) return '年份未知';
+                    const numY = parseInt(y);
+                    if (numY < 0) return `公元前${Math.abs(numY)}年`; // 优雅处理 -91 这种公元前数据
+                    return `公元${numY}年`;
                 };
 
-                for (const [faction, pct] of Object.entries(data.affinity)) {
-                    const c = getColorForFactionName(faction);
-                    barHTML += `<div style="width: ${pct}%; background-color: ${c};" class="h-full"></div>`;
-                    textHTML += `<span style="color: ${c};" class="mr-3 font-bold">${faction} ${pct}%</span>`;
+                // --- 👑 修正：主动动作（出度）保持不变 ---
+                const formatAct = (a) => {
+                    const tColor = a.type === 'Event' ? 'text-yellow-400' : 'text-white';
+                    const target = `<b class="${tColor} px-1 tracking-wide">${a.target}</b>`;
+                    const action = `<span class="text-gray-300 border-b border-gray-600">${a.action}</span>`;
+                    
+                    if (a.action === '参与') return `参与了重大事件 ${target}`;
+                    if (a.action === '政敌') return `与 ${target} 互为 ${action}`;
+                    if (a.action === '结盟') return `与 ${target} 结为 ${action}`;
+                    
+                    if (a.action === '依附') return `${action} 于 ${target}`; // 主动依附保留
+                    
+                    if (['流放', '贬谪', '诛杀', '废黜'].includes(a.action)) return `将 ${target} ${action}`;
+                    if (['迫害', '反对'].includes(a.action)) return `对 ${target} 进行 ${action}`;
+                    if (['支持', '举荐', '辅佐', '拥立', '平反'].includes(a.action)) return `${action} 了 ${target}`;
+                    
+                    return `对 ${target} 进行了 ${action}`;
+                };
+
+                // --- 👑 修正：被动遭遇（入度）删除了依附的判断 ---
+                const formatEnc = (a) => {
+                    const source = `<b class="text-white px-1 tracking-wide">${a.source}</b>`;
+                    const action = `<span class="text-gray-300 border-b border-gray-600">${a.action}</span>`;
+                    
+                    if (a.action === '政敌') return `被 ${source} 视为 ${action}`;
+                    if (a.action === '结盟') return `与 ${source} 达成 ${action}`;
+                    
+                    if (['流放', '贬谪', '诛杀', '废黜'].includes(a.action)) return `被 ${source} ${action}`;
+                    if (['迫害', '反对'].includes(a.action)) return `遭到 ${source} 的 ${action}`;
+                    if (['支持', '举荐', '辅佐', '拥立', '平反'].includes(a.action)) return `获得 ${source} 的 ${action}`;
+                    
+                    return `被 ${source} ${action}`;
+                };
+
+                // --- 👑 核心过滤逻辑：在渲染时直接斩掉 "被依附" 的垃圾数据 ---
+                let acts = data.resume.actions
+                    .map(a => `<li class="leading-relaxed"><span class="text-yellow-600 inline-block w-20">[${formatYear(a.year)}]</span> ${formatAct(a)}</li>`)
+                    .join('');
+                    
+                let encs = data.resume.encounters
+                    .filter(a => a.action !== '依附') // 👈 这一行起到了静默拦截的作用
+                    .map(a => `<li class="leading-relaxed"><span class="text-yellow-600 inline-block w-20">[${formatYear(a.year)}]</span> ${formatEnc(a)}</li>`)
+                    .join('');
+                                    
+                let barHTML = '', textHTML = '';
+                const getColorForFactionName = (fname) => { for(let i=0; i<=5; i++) { if(factionDict[i].name === fname) return factionDict[i].color; } return "#555"; };
+
+                if(data.node_type === 'Person') {
+                    for (const [faction, pct] of Object.entries(data.affinity)) {
+                        const c = getColorForFactionName(faction);
+                        barHTML += `<div style="width: ${pct}%; background-color: ${c};" class="h-full"></div>`;
+                        textHTML += `<span style="color: ${c};" class="mr-3 font-bold">${faction} ${pct}%</span>`;
+                    }
                 }
 
+// --- 核心修改：彻底移除光谱条 (barHTML/textHTML 相关代码全部删掉) ---
+
                 document.getElementById('dossier-content').innerHTML = `
-                    <div class="text-2xl font-bold text-white tracking-widest">${data.name}</div>
-                    <div class="text-xs text-gray-500 mb-4 pb-3 border-b border-gray-800">代称：${data.aliases.join(', ') || '无'}</div>
-                    <div class="mb-5 bg-black/40 p-2 border border-gray-800 rounded">
-                        <div class="text-[10px] text-gray-400 uppercase mb-1">六合光谱分析 (正面结交比例)</div>
-                        <div class="w-full h-2 bg-gray-900 rounded-full flex mb-2 overflow-hidden">${barHTML}</div>
-                        <div class="text-xs flex flex-wrap">${textHTML}</div>
+                    <div class="text-2xl font-bold ${data.node_type==='Event'?'text-yellow-400':'text-white'} tracking-widest mb-1">
+                        ${data.name}
                     </div>
-                    <div class="mb-5"><div class="text-xs text-yellow-500 mb-2">主动出击</div><ul class="space-y-2 pl-2 border-l border-gray-800">${acts || '无'}</ul></div>
-                    <div><div class="text-xs text-blue-400 mb-2">被动遭遇</div><ul class="space-y-2 pl-2 border-l border-gray-800">${encs || '无'}</ul></div>
+
+                    <div class="text-[10px] text-gray-500 mb-6 pb-2 border-b border-gray-800 uppercase">
+                        ${data.node_type === 'Event' ? '重大历史事件' : '人物代称：'+(data.aliases.join(', ') || '无')}
+                    </div>
+
+                    <div class="mb-6">
+                        <div class="text-xs text-yellow-500 mb-3 font-bold flex items-center gap-2">
+                            <span class="w-1 h-3 bg-yellow-500"></span> 主体动作 / 关联记录
+                        </div>
+                        <ul class="space-y-3 pl-3 border-l border-gray-800 text-[13px] leading-relaxed">
+                            ${acts || '<span class="text-gray-600 italic">史料暂无主动记载</span>'}
+                        </ul>
+                    </div>
+
+                    <div>
+                        <div class="text-xs text-blue-400 mb-3 font-bold flex items-center gap-2">
+                            <span class="w-1 h-3 bg-blue-400"></span> 客体遭遇 / 关系网络
+                        </div>
+                        <ul class="space-y-3 pl-3 border-l border-gray-800 text-[13px] leading-relaxed">
+                            ${encs || '<span class="text-gray-600 italic">史料暂无被动记载</span>'}
+                        </ul>
+                    </div>
                 `;
             }
         });
 
         async function askAI() {
             const input = document.getElementById('ai-input'), q = input.value.trim();
+            const btn = document.getElementById('send-btn');
             if(!q) return;
             const chatBox = document.getElementById('chat-box');
-            chatBox.innerHTML += `<div class="flex justify-end mb-4"><div class="bg-blue-900/30 text-blue-300 border border-blue-800/50 p-3 rounded-lg rounded-tr-none max-w-[85%] text-xs shadow-md"><b class="text-blue-400 block">研判指令：</b>${q}</div></div>`;
-            input.value = ""; chatBox.scrollTop = chatBox.scrollHeight;
+            
+            chatBox.innerHTML += `<div class="flex justify-end mb-4"><div class="bg-blue-900/30 text-blue-300 border border-blue-800/50 p-3 rounded-lg rounded-tr-none max-w-[85%] text-xs shadow-md"><b class="text-blue-400 block mb-1">研判指令：</b>${q}</div></div>`;
+            input.value = ""; btn.innerText = "推演中"; btn.disabled = true;
+            chatBox.scrollTop = chatBox.scrollHeight;
 
             const res = await fetch(`${API_BASE}/ask`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question: q}) }).then(r => r.json());
             
-            const hlStyle = `<span class="inline-block bg-yellow-900/40 text-yellow-400 border border-yellow-600/50 rounded px-2 py-1 mx-1 my-1 text-[11px] shadow-sm">🔍 $1</span>`;
-            const ans = res.answer.replace(/【依据：(.*?)】/g, hlStyle).replace(/\[依据：(.*?)\]/g, hlStyle);
+            // 👑 V2.0 增强正则：适配大模型更严格的证据输出结构
+            const hlStyle = `<div class="mt-2 bg-black/60 border-l-2 border-yellow-600 p-2 rounded text-[11px] text-gray-300 leading-relaxed shadow-inner"><span class="text-yellow-500 font-bold mr-1">📜 原始凭证:</span> $1</div>`;
+            const ans = res.answer.replace(/【依据：(.*?)】/g, hlStyle).replace(/\[依据：(.*?)\]/g, hlStyle).replace(/\n/g, '<br/>');
 
-            chatBox.innerHTML += `<div class="flex justify-start mb-4"><div class="bg-black/60 text-gray-300 border border-yellow-900/40 p-3 rounded-lg rounded-tl-none max-w-[95%] text-xs leading-relaxed shadow-lg"><b class="text-yellow-500 block border-b border-gray-800 pb-1 mb-2">AI 研判：</b>${ans}</div></div>`;
+            chatBox.innerHTML += `<div class="flex justify-start mb-4"><div class="bg-gray-900 text-gray-200 border border-yellow-900/40 p-3 rounded-lg rounded-tl-none max-w-[95%] text-xs leading-relaxed shadow-lg"><b class="text-yellow-500 block border-b border-gray-800 pb-1 mb-2 tracking-widest">AI 沙盘结论：</b>${ans}</div></div>`;
+            btn.innerText = "推演"; btn.disabled = false; input.focus();
             chatBox.scrollTop = chatBox.scrollHeight;
         }
         document.getElementById('ai-input').addEventListener('keypress', e => { if (e.key === 'Enter') askAI(); });

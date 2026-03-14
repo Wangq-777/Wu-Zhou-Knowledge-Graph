@@ -1,0 +1,21 @@
+# 基础 Web 框架与服务器
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.2
+python-dotenv==1.0.0
+
+# 图数据库与网络算法
+neo4j==5.14.1
+networkx==3.2.1
+
+# 大模型集成与 JSON 修复 (GraphRAG 核心)
+openai==1.3.0
+json_repair==0.25.0
+
+# 史料清洗与预处理
+requests==2.31.0
+opencc==1.1.7
+tqdm==4.66.1
+
+# 路径管理
+pathlib
